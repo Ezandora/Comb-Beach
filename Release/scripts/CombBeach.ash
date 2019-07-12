@@ -1300,7 +1300,7 @@ int [int] stringToIntIntList(string input)
 	return stringToIntIntList(input, ",");
 }
 
-string __comb_beach_version = "1.0";
+string __comb_beach_version = "2.0";
 
 
 int [int] __most_recent_gameday_visited_for_minute_archive;
@@ -1314,8 +1314,9 @@ boolean __setting_skip_sandcastles = true; //we skip these because I don't think
 
 boolean __setting_output_spading_data = get_property("ezandoraCombBeachWriteSpadingInformation").to_boolean(); //do not enable this unless you want megabytes of HTML written to your session log
 
-boolean __setting_spade_all_left = my_id() != 1557284;
+boolean __setting_spade_all_left = false || my_id() != 1557284;
 boolean __stop_now = false;
+boolean __setting_only_complete_free_combs = false;
 void readArchive()
 {
 	file_to_map("comb_beach_visit_history.txt", __most_recent_gameday_visited_for_minute_archive);
@@ -1324,12 +1325,11 @@ void readArchive()
 		file_to_map("beach_comb_all_spade_these_please.txt", __beach_comb_spade_these_please);
 	else
 		file_to_map("beach_comb_spade_these_please.txt", __beach_comb_spade_these_please);
-	if (__beach_comb_spade_these_please.count() < 500 && __beach_comb_spade_these_please.count() > 0)
+	if (__beach_comb_spade_these_please.count() <= my_adventures() && __beach_comb_spade_these_please.count() > 0)
 		__setting_linear_search_on = true;
 	foreach minute in __beach_comb_spade_these_please
 		__beach_comb_spade_these_please_linear[__beach_comb_spade_these_please_linear.count()] = minute;
 }
-readArchive();
 
 void writeArchive()
 {
@@ -1363,6 +1363,7 @@ int pickNextMinute()
 		{
 			print("Reached end, stopping...");
 			__stop_now = true;
+			return -1;
 		}
 		return __beach_comb_spade_these_please_linear[__pnm_last_spading_directive_index_tried];
 	}
@@ -1401,10 +1402,17 @@ int pickNextMinute()
 
 buffer iteration(buffer last_page_text)
 {
-	string page_text = last_page_text;
+	buffer page_text = last_page_text;
 	if (page_text.contains_text("You grab your comb"))
 	{
+		if (__setting_only_complete_free_combs && !page_text.contains_text("free walks down the beach left today") && !page_text.contains_text("free walk down the beach left today"))
+		{
+			__stop_now = true;
+			return page_text;
+		}
 		int chosen_minute = pickNextMinute();
+		if (chosen_minute < 0)
+			return page_text;
 		page_text = visit_url("choice.php?whichchoice=1388&option=1&minutes=" + chosen_minute);
 	}
 	
@@ -1493,20 +1501,70 @@ buffer iteration(buffer last_page_text)
 	return page_text_2;
 }
 
-void main()
+void outputHelp()
+{
+	print_html("Commands:");
+	print_html("<b>free</b>: only use free combs");
+	print_html("<b>all</b> / <b>farm</b>: spend all adventures");
+	print_html("<b>[number]</b>: spend X adventures");
+	print_html("");
+	print_html("Examples:");
+	print_html("<b>CombBeach free</b>: free combings only");
+	print_html("<b>CombBeach all</b>: farming");
+}
+
+void main(string arguments)
 {
 	print("CombBeach v" + __comb_beach_version);
+	
+	int adventures_to_use = 100000;
+	foreach key, argument in arguments.split_string(" ")
+	{
+		if (argument == "") continue;
+		if (argument == "free")
+		{
+			__setting_only_complete_free_combs = true;
+		}
+		if (argument == "all" || argument == "spadeall" || argument == "farm")
+		{
+			__setting_only_complete_free_combs = false;
+			adventures_to_use = 100000;
+		}
+		if (is_integer(argument))
+		{
+			__setting_only_complete_free_combs = false;
+			adventures_to_use = argument.to_int();
+		}
+		if (argument == "spadeall")
+		{
+			__setting_spade_all_left = true;
+		}
+		if (argument == "help")
+		{
+			outputHelp();
+			return;
+		}
+	}
+	if (arguments == "")
+	{
+		outputHelp();
+		return;
+	}
+	
+	readArchive();
+	
+	
 	visit_url("main.php?comb=1", false, false);
 	buffer last_page_text = visit_url("choice.php");
 	
+	int starting_turncount = my_turncount();
 	int attempts_allowed = 1111;
-	while (my_adventures() > 0 && attempts_allowed > 0)
+	while (my_adventures() > 0 && attempts_allowed > 0 && my_turncount() - starting_turncount < adventures_to_use)
 	{
 		attempts_allowed -= 1;
 		last_page_text = iteration(last_page_text);
 		if (__stop_now)
 		{
-			print("Stopping.", "red");
 			break;
 		}
 	}
