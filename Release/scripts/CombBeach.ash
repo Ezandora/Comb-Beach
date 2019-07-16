@@ -1300,7 +1300,7 @@ int [int] stringToIntIntList(string input)
 	return stringToIntIntList(input, ",");
 }
 
-string __comb_beach_version = "2.0";
+string __comb_beach_version = "2.0.1";
 
 
 int [int] __most_recent_gameday_visited_for_minute_archive;
@@ -1314,7 +1314,7 @@ boolean __setting_skip_sandcastles = true; //we skip these because I don't think
 
 boolean __setting_output_spading_data = get_property("ezandoraCombBeachWriteSpadingInformation").to_boolean(); //do not enable this unless you want megabytes of HTML written to your session log
 
-boolean __setting_spade_all_left = false || my_id() != 1557284;
+boolean __setting_spade_all_left = true;
 boolean __stop_now = false;
 boolean __setting_only_complete_free_combs = false;
 void readArchive()
@@ -1399,10 +1399,16 @@ int pickNextMinute()
 	print("Next minute algorithm broke, picking random...", "red");
 	return random(10000) + 1;
 }
-
+boolean __output_final_message_bottle = false;
 buffer iteration(buffer last_page_text)
 {
 	buffer page_text = last_page_text;
+	if (!page_text.contains_text("Comb the Beach"))
+	{
+		print("No comb...?", "red");
+		__stop_now = true;
+		return page_text;
+	}
 	if (page_text.contains_text("You grab your comb"))
 	{
 		if (__setting_only_complete_free_combs && !page_text.contains_text("free walks down the beach left today") && !page_text.contains_text("free walk down the beach left today"))
@@ -1436,6 +1442,7 @@ buffer iteration(buffer last_page_text)
 	string [int] eligible_complex_coordinates;
 	string [int] eligible_extremely_interesting_coordinates;
 	string [int] eligible_combed_coordinates;
+	string [int] eligible_1_coordinates;
 	string [string] coordinate_mapping;
 	foreach key in matches_1
 	{
@@ -1446,7 +1453,11 @@ buffer iteration(buffer last_page_text)
 		coordinate_mapping[coordinate] = alt;
 		
 		
-		if (alt == "rough sand")
+		if (coordinate.contains_text("1,") && alt == "rough sand" && get_property("ezandoraCombBeach1CoordinatesForSpading").to_boolean())
+		{
+			eligible_1_coordinates[eligible_1_coordinates.count()] = coordinate;
+		}
+		else if (alt == "rough sand")
 		{
 			eligible_simple_coordinates[eligible_simple_coordinates.count()] = coordinate;
 		}
@@ -1477,9 +1488,13 @@ buffer iteration(buffer last_page_text)
 	{
 		target_coordinate = eligible_extremely_interesting_coordinates.listGetRandomObject();
 	}
-	if (eligible_complex_coordinates.count() > 0)
+	else if (eligible_complex_coordinates.count() > 0)
 	{
 		target_coordinate = eligible_complex_coordinates.listGetRandomObject();
+	}
+	else if (eligible_1_coordinates.count() > 0)
+	{
+		target_coordinate = eligible_1_coordinates.listGetRandomObject();
 	}
 	else if (eligible_simple_coordinates.count() > 0)
 	{
@@ -1498,6 +1513,13 @@ buffer iteration(buffer last_page_text)
 	buffer page_text_2 = visit_url("choice.php?whichchoice=1388&option=4&coords=" + target_coordinate);
 	if (__setting_output_spading_data)
 		logprint("COMB_BEACH_SAVED_COMB_RESULTS_1•" + current_minutes + "•" + target_coordinate + "•" + option_text + "•" + page_text_2);
+		
+	if (page_text_2.contains_text("like it contains some sort of message"))
+	{
+		print("We found a message in the bottle! Here's the HTML, (written to your session log) post it on the forums or tell someone about it:", "red");
+		print(page_text_2, "red");
+		__output_final_message_bottle = true;
+	}
 	return page_text_2;
 }
 
@@ -1569,5 +1591,7 @@ void main(string arguments)
 		}
 	}
 	visit_url("choice.php?whichchoice=1388&option=5");
+	if (__output_final_message_bottle)
+		print("You found a message in the bottle! Go look for it in your session log and post it somewhere.", "red");
 	print("Have a nice day."); //thank you
 }
