@@ -1300,7 +1300,7 @@ int [int] stringToIntIntList(string input)
 	return stringToIntIntList(input, ",");
 }
 
-string __comb_beach_version = "2.0.1";
+string __comb_beach_version = "2.0.2";
 
 
 int [int] __most_recent_gameday_visited_for_minute_archive;
@@ -1321,14 +1321,17 @@ void readArchive()
 {
 	file_to_map("comb_beach_visit_history.txt", __most_recent_gameday_visited_for_minute_archive);
 	
-	if (__setting_spade_all_left)
-		file_to_map("beach_comb_all_spade_these_please.txt", __beach_comb_spade_these_please);
-	else
-		file_to_map("beach_comb_spade_these_please.txt", __beach_comb_spade_these_please);
-	if (__beach_comb_spade_these_please.count() <= my_adventures() && __beach_comb_spade_these_please.count() > 0)
-		__setting_linear_search_on = true;
-	foreach minute in __beach_comb_spade_these_please
-		__beach_comb_spade_these_please_linear[__beach_comb_spade_these_please_linear.count()] = minute;
+	if (true)
+	{
+		if (__setting_spade_all_left)
+			file_to_map("beach_comb_all_spade_these_please.txt", __beach_comb_spade_these_please);
+		else
+			file_to_map("beach_comb_spade_these_please.txt", __beach_comb_spade_these_please);
+		if (__beach_comb_spade_these_please.count() <= my_adventures() && __beach_comb_spade_these_please.count() > 0)
+			__setting_linear_search_on = true;
+		foreach minute in __beach_comb_spade_these_please
+			__beach_comb_spade_these_please_linear[__beach_comb_spade_these_please_linear.count()] = minute;
+	}
 }
 
 void writeArchive()
@@ -1508,6 +1511,7 @@ buffer iteration(buffer last_page_text)
 		abort("Nothing to click on...?");
 		
 	
+	int previous_pearl_count = $item[rainbow pearl].item_amount();
 	string option_text = coordinate_mapping[target_coordinate];
 	print("Visiting " + current_minutes + "•" + target_coordinate + "•" + option_text);
 	buffer page_text_2 = visit_url("choice.php?whichchoice=1388&option=4&coords=" + target_coordinate);
@@ -1517,6 +1521,12 @@ buffer iteration(buffer last_page_text)
 	if (page_text_2.contains_text("like it contains some sort of message"))
 	{
 		print("We found a message in the bottle! Here's the HTML, (written to your session log) post it on the forums or tell someone about it:", "red");
+		print(page_text_2, "red");
+		__output_final_message_bottle = true;
+	}
+	if ($item[rainbow pearl].item_amount() > previous_pearl_count)
+	{
+		print("We found a rainbow pearl? Here's the HTML, (written to your session log) post it on the forums or tell someone about it:", "red");
 		print(page_text_2, "red");
 		__output_final_message_bottle = true;
 	}
@@ -1592,6 +1602,6 @@ void main(string arguments)
 	}
 	visit_url("choice.php?whichchoice=1388&option=5");
 	if (__output_final_message_bottle)
-		print("You found a message in the bottle! Go look for it in your session log and post it somewhere.", "red");
+		print("You found something interesting! Go look for it in your session log and post it somewhere.", "red");
 	print("Have a nice day."); //thank you
 }
