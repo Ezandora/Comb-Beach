@@ -1,6 +1,6 @@
 Comb-Beach
 =====
-Farm beach IOTM
+Farm beach comb IOTM.
 
 
 Installation

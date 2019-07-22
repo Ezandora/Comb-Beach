@@ -1290,6 +1290,7 @@ int [int] stringToIntIntList(string input, string delimiter)
 		return out;
 	foreach key, v in input.split_string(delimiter)
 	{
+		if (v == "") continue;
 		out.listAppend(v.to_int());
 	}
 	return out;
@@ -1300,7 +1301,7 @@ int [int] stringToIntIntList(string input)
 	return stringToIntIntList(input, ",");
 }
 
-string __comb_beach_version = "2.0.2";
+string __comb_beach_version = "2.0.3";
 
 
 int [int] __most_recent_gameday_visited_for_minute_archive;
@@ -1321,7 +1322,7 @@ void readArchive()
 {
 	file_to_map("comb_beach_visit_history.txt", __most_recent_gameday_visited_for_minute_archive);
 	
-	if (true)
+	if (false)
 	{
 		if (__setting_spade_all_left)
 			file_to_map("beach_comb_all_spade_these_please.txt", __beach_comb_spade_these_please);
@@ -1518,7 +1519,7 @@ buffer iteration(buffer last_page_text)
 	if (__setting_output_spading_data)
 		logprint("COMB_BEACH_SAVED_COMB_RESULTS_1•" + current_minutes + "•" + target_coordinate + "•" + option_text + "•" + page_text_2);
 		
-	if (page_text_2.contains_text("like it contains some sort of message"))
+	if (page_text_2.contains_text("message"))
 	{
 		print("We found a message in the bottle! Here's the HTML, (written to your session log) post it on the forums or tell someone about it:", "red");
 		print(page_text_2, "red");
