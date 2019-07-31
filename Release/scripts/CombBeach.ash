@@ -1301,7 +1301,80 @@ int [int] stringToIntIntList(string input)
 	return stringToIntIntList(input, ",");
 }
 
-string __comb_beach_version = "2.0.3";
+
+Record FarmingLogState
+{
+	int [item] inventory;
+	int meat;
+};
+
+FarmingLogState __farming_log_universal_state;
+
+
+//FarmingLogStart()
+//FarmingLogOutputDelta(false)
+
+FarmingLogState FarmingLogStart(boolean replace_universal)
+{
+	FarmingLogState state;
+	state.inventory = get_inventory();
+	state.meat = my_meat();
+	if (replace_universal)
+		__farming_log_universal_state = state;
+	return state;
+}
+
+FarmingLogState FarmingLogStart()
+{
+	return FarmingLogStart(true);
+}
+
+FarmingLogState FarmingLogComputeDelta(FarmingLogState old_state)
+{
+	FarmingLogState current_state = FarmingLogStart(false);
+	FarmingLogState delta_state;
+	
+	foreach it, old_amount in old_state.inventory
+	{
+		int current_amount = current_state.inventory[it];
+		if (current_amount == old_amount) continue;
+		delta_state.inventory[it] = current_amount - old_amount;
+	}
+	delta_state.meat = current_state.meat - old_state.meat;
+	return delta_state;
+}
+
+FarmingLogState FarmingLogComputeDelta()
+{
+	return FarmingLogComputeDelta(__farming_log_universal_state);
+}
+
+void FarmingLogOutputDelta(FarmingLogState delta_state, boolean show_negatives)
+{
+	if (delta_state.inventory.count() == 0 && delta_state.meat == 0) return;
+	print("");
+	print("Farming results:");
+	if (delta_state.inventory.count() > 0)
+	{
+		foreach it, amount in delta_state.inventory
+		{
+			if (!show_negatives && amount <= 0) continue;
+			print((amount > 0 ? "+" : "") + amount + " " + it);
+		}
+	}
+	if (delta_state.meat != 0)
+	{
+		print((delta_state.meat > 0 ? "+" : "") + delta_state.meat + " meat.");
+	}
+	print("");
+}
+
+void FarmingLogOutputDelta(boolean show_negatives)
+{
+	FarmingLogOutputDelta(FarmingLogComputeDelta(), show_negatives);
+}
+
+string __comb_beach_version = "2.0.4";
 
 
 int [int] __most_recent_gameday_visited_for_minute_archive;
@@ -1309,22 +1382,25 @@ int [int] __most_recent_gameday_visited_for_minute_archive;
 
 boolean [int] __beach_comb_spade_these_please;
 int [int] __beach_comb_spade_these_please_linear;
+string [int] __beach_comb_datafile_targeted_coordinates;
 
 boolean __setting_linear_search_on = false; //only works in the context of spading directives
 boolean __setting_skip_sandcastles = true; //we skip these because I don't think there's a benefit to them, and we want humans to have the pleasure of smashing someone else's hard work for themselves
 
 boolean __setting_output_spading_data = get_property("ezandoraCombBeachWriteSpadingInformation").to_boolean(); //do not enable this unless you want megabytes of HTML written to your session log
 
-boolean __setting_spade_all_left = true;
+boolean __setting_spade_all_left = false;
+boolean __setting_use_targeted_coordinates = false;
 boolean __stop_now = false;
 boolean __setting_only_complete_free_combs = false;
+
 void readArchive()
 {
 	file_to_map("comb_beach_visit_history.txt", __most_recent_gameday_visited_for_minute_archive);
-	
-	if (false)
+	file_to_map("beach_comb_targeted_coordinates.txt", __beach_comb_datafile_targeted_coordinates);
+	if (__setting_spade_all_left)
 	{
-		if (__setting_spade_all_left)
+		if (true)
 			file_to_map("beach_comb_all_spade_these_please.txt", __beach_comb_spade_these_please);
 		else
 			file_to_map("beach_comb_spade_these_please.txt", __beach_comb_spade_these_please);
@@ -1355,6 +1431,18 @@ int daysSinceEncounteringMinute(int today, int minute)
 	return days_since_encountering_minute;
 }
 
+int convertRawCoordinateToMinutes(string coordinate_raw)
+{
+	string y_coordinate_raw = coordinate_raw.split_string(",")[1];
+	if (y_coordinate_raw == "") return -1;
+	int y_coordinate = y_coordinate_raw.to_int();
+	
+	if (y_coordinate % 10 == 0)
+		return y_coordinate / 10;
+	else
+		return ceil(to_float(y_coordinate) / 10.0);
+}
+
 int __pnm_last_spading_directive_index_tried = -1;
 int pickNextMinute()
 {
@@ -1371,6 +1459,21 @@ int pickNextMinute()
 		}
 		return __beach_comb_spade_these_please_linear[__pnm_last_spading_directive_index_tried];
 	}
+	
+	if (__setting_use_targeted_coordinates && __beach_comb_datafile_targeted_coordinates.count() > 0)
+	{
+		int current_coordinate_index = get_property("ezandora_comb_beach_next_targeted_coordinate").to_int();
+		if (current_coordinate_index >= __beach_comb_datafile_targeted_coordinates.count())
+		{
+			current_coordinate_index = 0;
+			set_property("ezandora_comb_beach_next_targeted_coordinate", current_coordinate_index);
+			abort("reached wraparound point for targeted coordinates");
+		}
+		string coordinate_raw = __beach_comb_datafile_targeted_coordinates[current_coordinate_index];
+		chosen_minute = convertRawCoordinateToMinutes(coordinate_raw);
+		if (chosen_minute >= 0 && chosen_minute <= 10000) return chosen_minute;
+	}
+	
 	//Use __most_recent_gameday_visited_for_minute_archive, pick a minute we haven't visited in a while.
 	//Inefficient and slow:
 	int today = gameday_to_int();
@@ -1511,9 +1614,25 @@ buffer iteration(buffer last_page_text)
 	else
 		abort("Nothing to click on...?");
 		
+		
+	if (__setting_use_targeted_coordinates && __beach_comb_datafile_targeted_coordinates.count() > 0)
+	{
+		int current_coordinate_index = get_property("ezandora_comb_beach_next_targeted_coordinate").to_int();
+		string raw = __beach_comb_datafile_targeted_coordinates[current_coordinate_index];
+		
+		set_property("ezandora_comb_beach_next_targeted_coordinate", current_coordinate_index + 1);
+		
+		if (coordinate_mapping[raw] != "combed sand" && coordinate_mapping[raw] != "")
+			target_coordinate = raw;
+		else
+			print("Skipping target coordinate " + raw + " because it's " + coordinate_mapping[raw]);
+	}
+		
 	
 	int previous_pearl_count = $item[rainbow pearl].item_amount();
 	string option_text = coordinate_mapping[target_coordinate];
+	if (option_text == "")
+		abort("bad option text, what?");
 	print("Visiting " + current_minutes + "•" + target_coordinate + "•" + option_text);
 	buffer page_text_2 = visit_url("choice.php?whichchoice=1388&option=4&coords=" + target_coordinate);
 	if (__setting_output_spading_data)
@@ -1549,6 +1668,7 @@ void outputHelp()
 void main(string arguments)
 {
 	print("CombBeach v" + __comb_beach_version);
+	FarmingLogStart();
 	
 	int adventures_to_use = 100000;
 	foreach key, argument in arguments.split_string(" ")
@@ -1571,6 +1691,10 @@ void main(string arguments)
 		if (argument == "spadeall")
 		{
 			__setting_spade_all_left = true;
+		}
+		if (argument == "target" || argument == "targeted" || argument == "specific")
+		{
+			__setting_use_targeted_coordinates = true;
 		}
 		if (argument == "help")
 		{
@@ -1602,6 +1726,7 @@ void main(string arguments)
 		}
 	}
 	visit_url("choice.php?whichchoice=1388&option=5");
+	FarmingLogOutputDelta(false);
 	if (__output_final_message_bottle)
 		print("You found something interesting! Go look for it in your session log and post it somewhere.", "red");
 	print("Have a nice day."); //thank you
