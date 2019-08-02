@@ -1312,7 +1312,7 @@ FarmingLogState __farming_log_universal_state;
 
 
 //FarmingLogStart()
-//FarmingLogOutputDelta(false)
+//FarmingLogOutputDelta()
 
 FarmingLogState FarmingLogStart(boolean replace_universal)
 {
@@ -1334,8 +1334,9 @@ FarmingLogState FarmingLogComputeDelta(FarmingLogState old_state)
 	FarmingLogState current_state = FarmingLogStart(false);
 	FarmingLogState delta_state;
 	
-	foreach it, old_amount in old_state.inventory
+	foreach it in $items[]
 	{
+		int old_amount = old_state.inventory[it];
 		int current_amount = current_state.inventory[it];
 		if (current_amount == old_amount) continue;
 		delta_state.inventory[it] = current_amount - old_amount;
@@ -1374,7 +1375,12 @@ void FarmingLogOutputDelta(boolean show_negatives)
 	FarmingLogOutputDelta(FarmingLogComputeDelta(), show_negatives);
 }
 
-string __comb_beach_version = "2.0.4";
+void FarmingLogOutputDelta()
+{
+	FarmingLogOutputDelta(false);
+}
+
+string __comb_beach_version = "2.0.5";
 
 
 int [int] __most_recent_gameday_visited_for_minute_archive;
@@ -1391,6 +1397,7 @@ boolean __setting_output_spading_data = get_property("ezandoraCombBeachWriteSpad
 
 boolean __setting_spade_all_left = false;
 boolean __setting_use_targeted_coordinates = false;
+boolean __setting_experiment = false;
 boolean __stop_now = false;
 boolean __setting_only_complete_free_combs = false;
 
@@ -1550,6 +1557,7 @@ buffer iteration(buffer last_page_text)
 	string [int] eligible_extremely_interesting_coordinates;
 	string [int] eligible_combed_coordinates;
 	string [int] eligible_1_coordinates;
+	string [int] eligible_slightly_better_coordinates;
 	string [string] coordinate_mapping;
 	foreach key in matches_1
 	{
@@ -1602,6 +1610,10 @@ buffer iteration(buffer last_page_text)
 	else if (eligible_1_coordinates.count() > 0)
 	{
 		target_coordinate = eligible_1_coordinates.listGetRandomObject();
+	}
+	else if (eligible_slightly_better_coordinates.count() > 0)
+	{
+		target_coordinate = eligible_slightly_better_coordinates.listGetRandomObject();
 	}
 	else if (eligible_simple_coordinates.count() > 0)
 	{
@@ -1696,6 +1708,10 @@ void main(string arguments)
 		{
 			__setting_use_targeted_coordinates = true;
 		}
+		if (argument == "experiment")
+		{
+			__setting_experiment = true;
+		}
 		if (argument == "help")
 		{
 			outputHelp();
@@ -1726,7 +1742,7 @@ void main(string arguments)
 		}
 	}
 	visit_url("choice.php?whichchoice=1388&option=5");
-	FarmingLogOutputDelta(false);
+	FarmingLogOutputDelta();
 	if (__output_final_message_bottle)
 		print("You found something interesting! Go look for it in your session log and post it somewhere.", "red");
 	print("Have a nice day."); //thank you
