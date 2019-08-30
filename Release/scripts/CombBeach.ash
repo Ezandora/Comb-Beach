@@ -1380,7 +1380,7 @@ void FarmingLogOutputDelta()
 	FarmingLogOutputDelta(false);
 }
 
-string __comb_beach_version = "2.0.5";
+string __comb_beach_version = "2.0.6";
 
 
 int [int] __most_recent_gameday_visited_for_minute_archive;
@@ -1400,6 +1400,28 @@ boolean __setting_use_targeted_coordinates = false;
 boolean __setting_experiment = false;
 boolean __stop_now = false;
 boolean __setting_only_complete_free_combs = false;
+
+buffer visit_url_retry(string url, boolean a, boolean b)
+{
+	buffer page_text;
+	int breakout = 10;
+	while (page_text.length() == 0 && breakout > 0)
+	{
+		breakout -= 1;
+		page_text = visit_url(url, a, b);
+		if (page_text.length() == 0)
+		{
+			print("Page didn't load, retrying...", "red");
+			wait(30);
+		}
+	}
+	return page_text;
+}
+
+buffer visit_url_retry(string url)
+{
+	return visit_url_retry(url, true, false);
+}
 
 void readArchive()
 {
@@ -1474,7 +1496,9 @@ int pickNextMinute()
 		{
 			current_coordinate_index = 0;
 			set_property("ezandora_comb_beach_next_targeted_coordinate", current_coordinate_index);
-			abort("reached wraparound point for targeted coordinates");
+			print("reached wraparound point for targeted coordinates, stopping...");
+			exit;
+			//abort("reached wraparound point for targeted coordinates");
 		}
 		string coordinate_raw = __beach_comb_datafile_targeted_coordinates[current_coordinate_index];
 		chosen_minute = convertRawCoordinateToMinutes(coordinate_raw);
@@ -1533,7 +1557,7 @@ buffer iteration(buffer last_page_text)
 		int chosen_minute = pickNextMinute();
 		if (chosen_minute < 0)
 			return page_text;
-		page_text = visit_url("choice.php?whichchoice=1388&option=1&minutes=" + chosen_minute);
+		page_text = visit_url_retry("choice.php?whichchoice=1388&option=1&minutes=" + chosen_minute);
 	}
 	
 	string current_minutes_as_string = page_text.group_string("You walk for ([0123456789,]+) ")[0][1];
@@ -1646,7 +1670,7 @@ buffer iteration(buffer last_page_text)
 	if (option_text == "")
 		abort("bad option text, what?");
 	print("Visiting " + current_minutes + "•" + target_coordinate + "•" + option_text);
-	buffer page_text_2 = visit_url("choice.php?whichchoice=1388&option=4&coords=" + target_coordinate);
+	buffer page_text_2 = visit_url_retry("choice.php?whichchoice=1388&option=4&coords=" + target_coordinate);
 	if (__setting_output_spading_data)
 		logprint("COMB_BEACH_SAVED_COMB_RESULTS_1•" + current_minutes + "•" + target_coordinate + "•" + option_text + "•" + page_text_2);
 		
@@ -1727,8 +1751,8 @@ void main(string arguments)
 	readArchive();
 	
 	
-	visit_url("main.php?comb=1", false, false);
-	buffer last_page_text = visit_url("choice.php");
+	visit_url_retry("main.php?comb=1", false, false);
+	buffer last_page_text = visit_url_retry("choice.php");
 	
 	int starting_turncount = my_turncount();
 	int attempts_allowed = 1111;
@@ -1741,7 +1765,7 @@ void main(string arguments)
 			break;
 		}
 	}
-	visit_url("choice.php?whichchoice=1388&option=5");
+	visit_url_retry("choice.php?whichchoice=1388&option=5");
 	FarmingLogOutputDelta();
 	if (__output_final_message_bottle)
 		print("You found something interesting! Go look for it in your session log and post it somewhere.", "red");
