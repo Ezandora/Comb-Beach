@@ -837,6 +837,14 @@ boolean [monster] listCopy(boolean [monster] l)
     return result;
 }
 
+int [item] listCopy(int [item] l)
+{
+    int [item] result;
+    foreach key in l
+        result[key] = l[key];
+    return result;
+}
+
 //Strict, in this case, means the keys start at 0, and go up by one per entry. This allows easy consistent access
 boolean listKeysMeetStrictRequirements(string [int] list)
 {
@@ -1380,7 +1388,7 @@ void FarmingLogOutputDelta()
 	FarmingLogOutputDelta(false);
 }
 
-string __comb_beach_version = "2.0.6";
+string __comb_beach_version = "2.0.7";
 
 
 int [int] __most_recent_gameday_visited_for_minute_archive;
@@ -1392,6 +1400,7 @@ string [int] __beach_comb_datafile_targeted_coordinates;
 
 boolean __setting_linear_search_on = false; //only works in the context of spading directives
 boolean __setting_skip_sandcastles = true; //we skip these because I don't think there's a benefit to them, and we want humans to have the pleasure of smashing someone else's hard work for themselves
+boolean __setting_do_full_pass_over_minutes = true;
 
 boolean __setting_output_spading_data = get_property("ezandoraCombBeachWriteSpadingInformation").to_boolean(); //do not enable this unless you want megabytes of HTML written to your session log
 
@@ -1411,7 +1420,7 @@ buffer visit_url_retry(string url, boolean a, boolean b)
 		page_text = visit_url(url, a, b);
 		if (page_text.length() == 0)
 		{
-			print("Page didn't load, retrying...", "red");
+			print(url + " didn't load, retrying...", "red");
 			wait(30);
 		}
 	}
@@ -1505,6 +1514,13 @@ int pickNextMinute()
 		if (chosen_minute >= 0 && chosen_minute <= 10000) return chosen_minute;
 	}
 	
+	if (__setting_do_full_pass_over_minutes && get_property("ezandora_comb_beach_next_full_pass_minute").to_int() < 10001 && my_id() == 1557284)
+	{
+		chosen_minute = get_property("ezandora_comb_beach_next_full_pass_minute").to_int();
+		set_property("ezandora_comb_beach_next_full_pass_minute", chosen_minute + 1);
+		return chosen_minute;
+	}
+	
 	//Use __most_recent_gameday_visited_for_minute_archive, pick a minute we haven't visited in a while.
 	//Inefficient and slow:
 	int today = gameday_to_int();
@@ -1576,6 +1592,7 @@ buffer iteration(buffer last_page_text)
 	
 	string [int][int] matches_1 = page_text.group_string("<button(.*?)</button>");
 	
+	string [int] eligible_twinkling_coordinates;
 	string [int] eligible_simple_coordinates;
 	string [int] eligible_complex_coordinates;
 	string [int] eligible_extremely_interesting_coordinates;
@@ -1608,6 +1625,10 @@ buffer iteration(buffer last_page_text)
 		{
 			//ignore, doesn't give items
 		}
+		else if (alt == "rough sand with a twinkle")
+		{
+			eligible_twinkling_coordinates[eligible_twinkling_coordinates.count()] = coordinate;
+		}
 		else
 		{
 			print("Interesting: " + alt, "red");
@@ -1630,6 +1651,10 @@ buffer iteration(buffer last_page_text)
 	else if (eligible_complex_coordinates.count() > 0)
 	{
 		target_coordinate = eligible_complex_coordinates.listGetRandomObject();
+	}
+	else if (eligible_twinkling_coordinates.count() > 0)
+	{
+		target_coordinate = eligible_twinkling_coordinates.listGetRandomObject();
 	}
 	else if (eligible_1_coordinates.count() > 0)
 	{
