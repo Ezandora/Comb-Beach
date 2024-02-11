@@ -7,5 +7,5 @@ Installation
 ----------------
 Run this command in the graphical CLI:
 <pre>
-svn checkout https://github.com/Ezandora/Comb-Beach/trunk/Release/
+git checkout https://github.com/Ezandora/Comb-Beach.git
 </pre>
